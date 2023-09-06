@@ -8,18 +8,16 @@ import (
 )
 
 type MongoExportConfig struct {
-	Name     string // Required
 	MongoURI string // Required
 }
 
 type MongoExport struct {
-	config  MongoExportConfig
-	storage Storage
+	config MongoExportConfig
 }
 
-func NewMongoExport(_ context.Context, config MongoExportConfig, storage Storage) (*MongoExport, error) {
+func NewMongoExport(_ context.Context, config MongoExportConfig) (*MongoExport, error) {
 	//TODO: Validate Connection
-	return &MongoExport{config: config, storage: storage}, nil
+	return &MongoExport{config: config}, nil
 }
 
 func (export *MongoExport) Export(ctx context.Context, writer io.WriteCloser) error {
