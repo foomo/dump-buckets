@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -65,5 +66,5 @@ var mongoCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(mongoCmd)
-	mongoCmd.Flags().StringVar(&mongoURI, "mongo-uri", "", "specifies the mongo uri dump")
+	mongoCmd.Flags().StringVar(&mongoURI, "mongo-uri", os.Getenv("MONGO_URI"), "specifies the mongo uri dump")
 }
