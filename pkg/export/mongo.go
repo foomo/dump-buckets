@@ -8,7 +8,8 @@ import (
 )
 
 type MongoExportConfig struct {
-	MongoURI string // Required
+	MongoURI               string // Required
+	AuthenticationDatabase string
 }
 
 type MongoExport struct {
@@ -26,6 +27,10 @@ func (export *MongoExport) Export(ctx context.Context, writer io.WriteCloser) er
 	args := []string{
 		"--uri", cfg.MongoURI,
 		"--archive",
+	}
+
+	if cfg.AuthenticationDatabase != "" {
+		args = append(args, "--authenticationDatabase", cfg.AuthenticationDatabase)
 	}
 
 	cmd := exec.CommandContext(ctx, "mongodump", args...)

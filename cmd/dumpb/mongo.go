@@ -13,7 +13,8 @@ import (
 )
 
 var (
-	mongoURI string
+	mongoURI                    string
+	mongoAuthenticationDatabase string
 )
 
 var mongoCmd = &cobra.Command{
@@ -23,7 +24,12 @@ var mongoCmd = &cobra.Command{
 		start := time.Now()
 		ctx := cmd.Context()
 
-		exporter, err := export.NewMongoExport(ctx, export.MongoExportConfig{MongoURI: mongoURI})
+		exporter, err := export.NewMongoExport(
+			ctx,
+			export.MongoExportConfig{
+				MongoURI:               mongoURI,
+				AuthenticationDatabase: mongoAuthenticationDatabase},
+		)
 		if err != nil {
 			return err
 		}
@@ -63,4 +69,5 @@ var mongoCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(mongoCmd)
 	mongoCmd.Flags().StringVar(&mongoURI, "mongo-uri", os.Getenv("MONGO_URI"), "specifies the mongo uri dump")
+	mongoCmd.Flags().StringVar(&mongoAuthenticationDatabase, "mongo-authentication-database", os.Getenv("MONGO_AUTHENTICATION_DATABASE"), "specifies the mongo authentication database")
 }
