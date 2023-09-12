@@ -29,6 +29,7 @@ func (export *MongoExport) Export(ctx context.Context, writer io.WriteCloser) er
 	args := []string{
 		"--uri", cfg.MongoURI,
 		"--archive",
+		"--quiet",
 	}
 
 	if cfg.AuthenticationDatabase != "" {
