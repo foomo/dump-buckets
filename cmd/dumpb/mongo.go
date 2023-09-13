@@ -34,11 +34,11 @@ var mongoCmd = &cobra.Command{
 		}
 		exporter, err := export.NewMongoExport(ctx, config)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed in initializing mongo exporter: %w", err)
 		}
 		vendorStorage, err := configuredStorage(ctx)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed in configuring storage: %w", err)
 		}
 
 		l := slog.With(
@@ -52,7 +52,7 @@ var mongoCmd = &cobra.Command{
 		l.Info("MongoDB export started")
 		writer, err := vendorStorage.NewWriter(ctx, exportPath)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to initialize writer: %w", err)
 		}
 
 		defer writer.Close()
@@ -62,7 +62,7 @@ var mongoCmd = &cobra.Command{
 
 		err = exporter.Export(ctx, gzipWriter)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to export mongo data: %w", err)
 		}
 		l.Info("MongoDB export complete", slog.Any("duration", time.Since(start).Seconds()))
 		return nil
