@@ -10,6 +10,7 @@ import (
 type MongoExportConfig struct {
 	MongoURI               string // Required
 	AuthenticationDatabase string
+	MongoReadPreference    string
 	Username               string
 	Password               string
 }
@@ -29,7 +30,6 @@ func (export *MongoExport) Export(ctx context.Context, writer io.WriteCloser) er
 	args := []string{
 		"--uri", cfg.MongoURI,
 		"--archive",
-		"--quiet",
 	}
 
 	if cfg.AuthenticationDatabase != "" {
@@ -37,6 +37,9 @@ func (export *MongoExport) Export(ctx context.Context, writer io.WriteCloser) er
 	}
 	if cfg.Username != "" && cfg.Password != "" {
 		args = append(args, "--username", cfg.Username, "--password", cfg.Password)
+	}
+	if cfg.MongoReadPreference != "" {
+		args = append(args, "--mongoReadPreference", cfg.MongoReadPreference)
 	}
 
 	cmd := exec.CommandContext(ctx, "mongodump", args...)
