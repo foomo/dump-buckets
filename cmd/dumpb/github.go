@@ -51,7 +51,7 @@ var githubCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(mongoCmd)
+	rootCmd.AddCommand(githubCmd)
 	githubCmd.Flags().StringVar(&githubToken, "github-token", os.Getenv("GITHUB_TOKEN"), "specifies the GITHUB token (Optional)")
 	githubCmd.Flags().StringVar(&githubOrganization, "github-org", os.Getenv("GITHUB_ORG"), "specifies the github organization")
 	githubCmd.Flags().StringVar(&githubRepository, "github-repo", os.Getenv("GITHUB_REPO"), "specifies the github repository")
