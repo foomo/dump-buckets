@@ -15,6 +15,7 @@ var (
 	storageBucketVendor string
 	storageBucketName   string
 	storageBucketPath   string
+	backupName          string
 )
 
 var rootCmd = &cobra.Command{
@@ -30,6 +31,7 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
+	rootCmd.PersistentFlags().StringVar(&backupName, "backup-name", os.Getenv("BACKUP_NAME"), "specifies the name of the backup")
 	rootCmd.PersistentFlags().StringVar(&storageBucketVendor, "storage-vendor", os.Getenv("STORAGE_VENDOR"), "specifies the vendor for the buckets")
 	rootCmd.PersistentFlags().StringVar(&storageBucketName, "storage-bucket-name", os.Getenv("STORAGE_BUCKET_NAME"), "specifies the bucket name where to dump to")
 	rootCmd.PersistentFlags().StringVar(&storageBucketPath, "storage-path", os.Getenv("STORAGE_PATH"), "specifies the path where to store the backups")

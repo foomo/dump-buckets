@@ -15,7 +15,6 @@ import (
 var (
 	mongoURI                    string
 	mongoAuthenticationDatabase string
-	mongoReadPreference         string
 	mongoUsername               string
 	mongoPassword               string
 )
@@ -47,7 +46,10 @@ var mongoCmd = &cobra.Command{
 			slog.String("bucketVendor", storageBucketVendor),
 		)
 
-		exportName := fmt.Sprintf("%s.archive.gz", time.Now().Format(time.RFC3339))
+		exportName := fmt.Sprintf("%s.%s.archive.gz", backupName, time.Now().Format(time.RFC3339))
+		if backupName != "" {
+			exportName += fmt.Sprintf("%s.%s", backupName, exportName)
+		}
 		exportPath := filepath.Join(storageBucketPath, exportName)
 		l = l.With(slog.String("path", exportPath))
 		l.Info("MongoDB export started")
