@@ -24,7 +24,7 @@ func NewMongoExport(_ context.Context, config MongoExportConfig) (*MongoExport, 
 	return &MongoExport{config: config}, nil
 }
 
-func (export *MongoExport) Export(ctx context.Context, writer io.WriteCloser) error {
+func (export *MongoExport) Export(ctx context.Context, writer io.Writer) error {
 	cfg := export.config
 
 	args := []string{

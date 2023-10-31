@@ -13,10 +13,16 @@ RUN apk add -U --no-cache \
     curl \
     bash \
     mongodb-tools \
+    npm \
   && rm -rf /var/cache/apk/*
 
 RUN  cp /usr/share/zoneinfo/${DEFAULT_TZ} /etc/localtime \
      && echo ${DEFAULT_TZ} > /etc/timezone
+
+# Install NodeJS dependencies
+
+RUN npm install -g contentful-cli
+
 
 # -----------------------------------------------------------------------------
 # Builder Base

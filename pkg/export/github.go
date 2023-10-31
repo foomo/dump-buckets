@@ -31,7 +31,7 @@ func NewGitExport(_ context.Context, config GitHubExportConfig) (*GitHubExport, 
 }
 
 // Exports Tarball
-func (ge *GitHubExport) Export(ctx context.Context, writer io.WriteCloser) error {
+func (ge *GitHubExport) Export(ctx context.Context, writer io.Writer) error {
 	repositoryURL := fmt.Sprintf(repositoryArchiveURL, ge.config.Organization, ge.config.Repository, ge.config.Branch)
 	req, err := http.NewRequestWithContext(ctx, "GET", repositoryURL, nil)
 	if ge.config.GithubToken != "" {
