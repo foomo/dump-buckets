@@ -41,7 +41,7 @@ func (ce *ContentfulExport) Export(ctx context.Context, writer io.Writer) error 
 	}
 
 	// Export
-	cmd := exec.CommandContext(ctx, "contentful-cli", args...)
+	cmd := exec.CommandContext(ctx, "contentful", args...)
 	cmd.Stdout = log.Writer() // only write to bucket since dump will be in stdoud
 	cmd.Stderr = log.Writer()
 	err = cmd.Run()
