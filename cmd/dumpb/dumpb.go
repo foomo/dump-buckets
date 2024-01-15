@@ -13,7 +13,6 @@ type exporterHandler func(ctx context.Context, l *slog.Logger, storage storageWr
 
 func exportWrapper(exporterName string, handler exporterHandler) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-
 		start := time.Now()
 		ctx := cmd.Context()
 		l := slog.With(

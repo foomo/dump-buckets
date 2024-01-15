@@ -13,6 +13,7 @@ RUN apk add -U --no-cache \
     curl \
     bash \
     mongodb-tools \
+    postgresql-client \
     npm \
   && rm -rf /var/cache/apk/*
 
@@ -57,4 +58,6 @@ FROM runtime
 
 COPY --from=build-env /dumpb /dumpb
 
-ENTRYPOINT "/dumpb"
+ENTRYPOINT ["/dumpb"]
+
+

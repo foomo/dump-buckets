@@ -1,6 +1,13 @@
 .PHONY: build
 build:
-	docker buildx build  --platform=linux/arm64/v8 -f Dockerfile -t foomo/dump-buckets:latest .
+	docker buildx build -f Dockerfile -t dump-buckets:latest .
 
 run:
-	docker run --rm -it foomo/dump-buckets:latest dumpb
+	docker run --rm -it \
+		-e BACKUP_NAME=execute-example \
+    	-e STORAGE_VENDOR=gcs \
+    	-e STORAGE_BUCKET_NAME=dumpb-test-bucket \
+    	-e STORAGE_PATH=execute-example \
+		-e GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcloud/application_default_credentials.json \
+		-v $(HOME)/.config/gcloud/application_default_credentials.json:/tmp/gcloud/application_default_credentials.json:ro \
+	dump-buckets:latest execute pg_dump
