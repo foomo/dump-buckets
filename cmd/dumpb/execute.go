@@ -1,6 +1,7 @@
 package dumpb
 
 import (
+	"bufio"
 	"compress/gzip"
 	"context"
 	"errors"
@@ -41,8 +42,11 @@ var executeCmd = &cobra.Command{
 				}
 				defer writer.Close()
 
+				buf := bufio.NewWriter(writer)
+				defer buf.Flush()
+
 				// GZIP Write Output
-				gzipWriter := gzip.NewWriter(writer)
+				gzipWriter := gzip.NewWriter(buf)
 				defer gzipWriter.Close()
 
 				// Execute the command, skip first 2 arguments
