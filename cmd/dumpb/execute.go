@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"time"
@@ -19,10 +18,16 @@ var executeCmd = &cobra.Command{
 	Use:   "execute",
 	Short: "Executes the specified command in the container",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		dashIndex := cmd.ArgsLenAtDash()
+		if dashIndex == -1 {
+			return errors.New("invalid command, requires args after dash")
+		}
+
 		wrapper := exportWrapper(
 			"execute",
 			func(ctx context.Context, l *slog.Logger, storage storageWriter) error {
-				if len(os.Args) < 3 {
+				cmdArgs := args[dashIndex:]
+				if len(cmdArgs) < 1 {
 					return errors.New("insufficient number of arguments")
 				}
 
@@ -40,7 +45,7 @@ var executeCmd = &cobra.Command{
 				defer gzipWriter.Close()
 
 				// Execute the command, skip first 2 arguments
-				cmd := exec.CommandContext(ctx, os.Args[2], os.Args[3:]...)
+				cmd := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
 				cmd.Stdout = gzipWriter // only write to bucket since dump will be in stdoud
 				cmd.Stderr = log.Writer()
 
