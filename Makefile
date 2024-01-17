@@ -2,7 +2,7 @@
 build:
 	docker buildx build -f Dockerfile -t dump-buckets:latest .
 
-run:
+run: build
 	docker run --rm -it \
 		-e BACKUP_NAME=execute-example \
     	-e STORAGE_VENDOR=gcs \
@@ -10,4 +10,4 @@ run:
     	-e STORAGE_PATH=execute-example \
 		-e GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcloud/application_default_credentials.json \
 		-v $(HOME)/.config/gcloud/application_default_credentials.json:/tmp/gcloud/application_default_credentials.json:ro \
-	dump-buckets:latest execute pg_dump
+	dump-buckets:latest execute -- echo "hello"

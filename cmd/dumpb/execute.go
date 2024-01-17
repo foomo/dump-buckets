@@ -27,6 +27,7 @@ var executeCmd = &cobra.Command{
 			"execute",
 			func(ctx context.Context, l *slog.Logger, storage storageWriter) error {
 				cmdArgs := args[dashIndex:]
+				fmt.Println(cmdArgs, dashIndex)
 				if len(cmdArgs) < 1 {
 					return errors.New("insufficient number of arguments")
 				}
