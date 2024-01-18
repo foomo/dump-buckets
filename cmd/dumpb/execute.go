@@ -8,11 +8,17 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
+)
+
+var (
+	outputGzip bool
+	outputExt  string
 )
 
 var executeCmd = &cobra.Command{
@@ -33,8 +39,7 @@ var executeCmd = &cobra.Command{
 					return errors.New("insufficient number of arguments")
 				}
 
-				exportName := fmt.Sprintf("%s/%s.tar.gz", backupName, time.Now().Format(time.RFC3339))
-				exportPath := filepath.Join(storageBucketPath, exportName)
+				exportPath := filepath.Join(storageBucketPath, getExportName(time.Now()))
 
 				writer, err := storage.NewWriter(ctx, exportPath)
 				if err != nil {
@@ -45,14 +50,18 @@ var executeCmd = &cobra.Command{
 				buf := bufio.NewWriter(writer)
 				defer buf.Flush()
 
-				// GZIP Write Output
-				gzipWriter := gzip.NewWriter(buf)
-				defer gzipWriter.Close()
-
 				// Execute the command, skip first 2 arguments
 				cmd := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
-				cmd.Stdout = gzipWriter // only write to bucket since dump will be in stdoud
 				cmd.Stderr = log.Writer()
+
+				if outputGzip {
+					// GZIP Write Output
+					gzipWriter := gzip.NewWriter(buf)
+					defer gzipWriter.Close()
+					cmd.Stdout = gzipWriter // only write to bucket since dump will be in stdoud
+				} else {
+					cmd.Stdout = buf
+				}
 
 				return cmd.Run()
 			},
@@ -61,6 +70,19 @@ var executeCmd = &cobra.Command{
 	},
 }
 
+func getExportName(ts time.Time) string {
+	exportName := fmt.Sprintf("%s/%s", backupName, ts.Format(time.RFC3339))
+	if outputExt != "" {
+		exportName += outputExt
+	}
+	if outputGzip {
+		exportName += ".gz"
+	}
+	return exportName
+}
+
 func init() {
 	rootCmd.AddCommand(executeCmd)
+	executeCmd.PersistentFlags().BoolVar(&outputGzip, "output-gzip", os.Getenv("OUTPUT_GZIP") == "true", "specifies that the output should use gzip compression")
+	executeCmd.PersistentFlags().StringVar(&outputExt, "output-ext", os.Getenv("OUTPUT_EXT"), "specifies the extension of the dump")
 }
