@@ -32,18 +32,18 @@ var executeCmd = &cobra.Command{
 
 		wrapper := exportWrapper(
 			"execute",
-			func(ctx context.Context, l *slog.Logger, storage storageWriter) error {
+			func(ctx context.Context, l *slog.Logger, storage storageWriter) (string, error) {
 				cmdArgs := args[dashIndex:]
-				fmt.Println(cmdArgs, dashIndex)
+
 				if len(cmdArgs) < 1 {
-					return errors.New("insufficient number of arguments")
+					return "", errors.New("insufficient number of arguments")
 				}
 
 				exportPath := filepath.Join(storageBucketPath, getExportName(time.Now()))
 
 				writer, err := storage.NewWriter(ctx, exportPath)
 				if err != nil {
-					return fmt.Errorf("failed to initialize writer: %w", err)
+					return "", fmt.Errorf("failed to initialize writer: %w", err)
 				}
 				defer writer.Close()
 
@@ -63,7 +63,7 @@ var executeCmd = &cobra.Command{
 					cmd.Stdout = buf
 				}
 
-				return cmd.Run()
+				return exportPath, cmd.Run()
 			},
 		)
 		return wrapper(cmd, args)
