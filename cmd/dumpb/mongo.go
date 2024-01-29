@@ -2,6 +2,7 @@ package dumpb
 
 import (
 	"compress/gzip"
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -22,10 +23,7 @@ var (
 var mongoCmd = &cobra.Command{
 	Use:   "mongo",
 	Short: "Dumps mongo into a bucket",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		start := time.Now()
-		ctx := cmd.Context()
-
+	RunE: exportWrapper("GitHub", func(ctx context.Context, l *slog.Logger, storage storageWriter) (string, error) {
 		config := export.MongoExportConfig{
 			MongoURI:               mongoURI,
 			Username:               mongoUsername,
@@ -34,17 +32,8 @@ var mongoCmd = &cobra.Command{
 		}
 		exporter, err := export.NewMongoExport(ctx, config)
 		if err != nil {
-			return fmt.Errorf("failed in initializing mongo exporter: %w", err)
+			return "", fmt.Errorf("failed in initializing mongo exporter: %w", err)
 		}
-		vendorStorage, err := configuredStorage(ctx)
-		if err != nil {
-			return fmt.Errorf("failed in configuring storage: %w", err)
-		}
-
-		l := slog.With(
-			slog.String("bucketName", storageBucketName),
-			slog.String("bucketVendor", storageBucketVendor),
-		)
 
 		exportName := fmt.Sprintf("%s.%s.archive.gz", backupName, time.Now().Format(time.RFC3339))
 		if backupName != "" {
@@ -52,12 +41,11 @@ var mongoCmd = &cobra.Command{
 		}
 		exportPath := filepath.Join(storageBucketPath, exportName)
 		l = l.With(slog.String("path", exportPath))
-		l.Info("MongoDB export started")
-		writer, err := vendorStorage.NewWriter(ctx, exportPath)
-		if err != nil {
-			return fmt.Errorf("failed to initialize writer: %w", err)
-		}
 
+		writer, err := storage.NewWriter(ctx, exportPath)
+		if err != nil {
+			return "", fmt.Errorf("failed to initialize writer: %w", err)
+		}
 		defer writer.Close()
 
 		gzipWriter := gzip.NewWriter(writer)
@@ -65,11 +53,10 @@ var mongoCmd = &cobra.Command{
 
 		err = exporter.Export(ctx, gzipWriter)
 		if err != nil {
-			return fmt.Errorf("failed to export mongo data: %w", err)
+			return "", fmt.Errorf("failed to export mongo data: %w", err)
 		}
-		l.Info("MongoDB export complete", slog.Any("duration", time.Since(start).Seconds()))
-		return nil
-	},
+		return exportPath, nil
+	}),
 }
 
 func init() {

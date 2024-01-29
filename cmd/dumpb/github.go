@@ -22,7 +22,7 @@ var (
 var githubCmd = &cobra.Command{
 	Use:   "github",
 	Short: "Dumps github repositories in a destination bucket",
-	RunE: exportWrapper("GitHub", func(ctx context.Context, l *slog.Logger, storage storageWriter) error {
+	RunE: exportWrapper("GitHub", func(ctx context.Context, l *slog.Logger, storage storageWriter) (string, error) {
 		config := export.GitHubExportConfig{
 			Organization: githubOrganization,
 			Repository:   githubRepository,
@@ -31,9 +31,8 @@ var githubCmd = &cobra.Command{
 		}
 		exporter, err := export.NewGitExport(ctx, config)
 		if err != nil {
-			return err
+			return "", err
 		}
-
 		exportName := fmt.Sprintf("%s.%s.%s.tar.gz", githubOrganization, githubRepository, time.Now().Format(time.RFC3339))
 		if backupName != "" {
 			exportName += fmt.Sprintf("%s/%s", backupName, exportName)
@@ -42,11 +41,11 @@ var githubCmd = &cobra.Command{
 
 		writer, err := storage.NewWriter(ctx, exportPath)
 		if err != nil {
-			return fmt.Errorf("failed to initialize writer: %w", err)
+			return "", fmt.Errorf("failed to initialize writer: %w", err)
 		}
 		defer writer.Close()
 
-		return exporter.Export(ctx, writer)
+		return exportPath, exporter.Export(ctx, writer)
 	}),
 }
 

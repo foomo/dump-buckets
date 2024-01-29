@@ -9,11 +9,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type exporterHandler func(ctx context.Context, l *slog.Logger, storage storageWriter) error
+type exporterHandler func(ctx context.Context, l *slog.Logger, storage storageWriter) (outputPath string, err error)
 
 func exportWrapper(exporterName string, handler exporterHandler) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-
 		start := time.Now()
 		ctx := cmd.Context()
 		l := slog.With(
@@ -26,12 +25,12 @@ func exportWrapper(exporterName string, handler exporterHandler) func(cmd *cobra
 			return fmt.Errorf("failed in configuring storage: %w", err)
 		}
 
-		err = handler(ctx, l, vendorStorage)
+		path, err := handler(ctx, l, vendorStorage)
 		if err != nil {
 			return err
 		}
 
-		l.Info("Export complete", slog.Any("duration", time.Since(start).Seconds()))
+		l.With(slog.String("path", path)).Info("Export complete", slog.Any("duration", time.Since(start).Seconds()))
 		return nil
 	}
 }

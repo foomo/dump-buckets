@@ -20,14 +20,14 @@ var (
 var contentfulCmd = &cobra.Command{
 	Use:   "contentful",
 	Short: "Dumps contentful spaces in a specific bucket",
-	RunE: exportWrapper("Contentful", func(ctx context.Context, l *slog.Logger, storage storageWriter) error {
+	RunE: exportWrapper("Contentful", func(ctx context.Context, l *slog.Logger, storage storageWriter) (string, error) {
 		config := export.ContentfulExportConfig{
 			ManagementToken: contentfulManagementToken,
 			SpaceID:         contentfulSpaceID,
 		}
 		exporter, err := export.NewContentfulExport(ctx, config)
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		exportName := fmt.Sprintf("%s.%s.%s.tar.gz", githubOrganization, githubRepository, time.Now().Format(time.RFC3339))
@@ -38,11 +38,11 @@ var contentfulCmd = &cobra.Command{
 
 		writer, err := storage.NewWriter(ctx, exportPath)
 		if err != nil {
-			return fmt.Errorf("failed to initialize writer: %w", err)
+			return "", fmt.Errorf("failed to initialize writer: %w", err)
 		}
 		defer writer.Close()
 
-		return exporter.Export(ctx, writer)
+		return exportPath, exporter.Export(ctx, writer)
 	}),
 }
 

@@ -34,10 +34,12 @@ func NewGitExport(_ context.Context, config GitHubExportConfig) (*GitHubExport, 
 func (ge *GitHubExport) Export(ctx context.Context, writer io.Writer) error {
 	repositoryURL := fmt.Sprintf(repositoryArchiveURL, ge.config.Organization, ge.config.Repository, ge.config.Branch)
 	req, err := http.NewRequestWithContext(ctx, "GET", repositoryURL, nil)
+	if err != nil {
+		return err
+	}
 	if ge.config.GithubToken != "" {
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", ge.config.GithubToken))
 	}
-
 	resp, err := ge.config.Client.Do(req)
 	if err != nil {
 		return err
