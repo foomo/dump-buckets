@@ -30,6 +30,8 @@ Exports mongo databases to the specified bucket.
 
 Exports bigquery datasets
 
+Requires BigQuery Job User & BigQuery Data Viewer permissions for the service account.
+
 ## Usage
 
 - To run the `execute` command: ``/dumpb execute -- echo "hello"``
