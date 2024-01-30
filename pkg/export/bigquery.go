@@ -52,7 +52,7 @@ func NewBigQueryExport(ctx context.Context, config BigQueryDatasetExportConfig) 
 	}, nil
 }
 
-func (bqe *BigQueryDatasetExport) Export(ctx context.Context) error {
+func (bqe *BigQueryDatasetExport) Export(ctx context.Context) (string, error) {
 	// Get all table names from the configured dataset
 	tableIterator := bqe.client.Dataset(bqe.config.DatasetName).Tables(ctx)
 	var tables []*bigquery.Table
@@ -62,7 +62,7 @@ func (bqe *BigQueryDatasetExport) Export(ctx context.Context) error {
 			if errors.Is(err, iterator.Done) {
 				break
 			} else {
-				return fmt.Errorf("failed to iterate dataset %w", err)
+				return "", fmt.Errorf("failed to iterate dataset %w", err)
 			}
 		}
 		if isTableFiltered(t.TableID, bqe.config.FilterAfter) {
@@ -85,7 +85,7 @@ func (bqe *BigQueryDatasetExport) Export(ctx context.Context) error {
 			return nil
 		})
 	}
-	return g.Wait()
+	return "", g.Wait()
 }
 
 // exportTableAsCompressedParquet demonstrates using an export job to
