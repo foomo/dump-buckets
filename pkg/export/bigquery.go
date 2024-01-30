@@ -4,68 +4,93 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"time"
 
 	"cloud.google.com/go/bigquery"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/api/iterator"
 )
 
 const (
-	bigqueryGCSURIFormat = "gs://%s/%s/%s/%d/*.parquet.gz"
+	// bigqueryGCSURIFormat is a constant that represents the format of a Google Cloud Storage URI used for exporting BigQuery tables to compressed Parquet format.
+	// The format of the URI is "gs://{bucket}/{dataset}/{table}/{timestamp}/*.parquet.gz", where:
+	// - {bucket} is the name of the Google Cloud Storage bucket
+	// - {dataset} is the name of the BigQuery dataset
+	// - {table} is the name of the BigQuery table
+	// - {timestamp} is the current Unix timestamp
+	bigqueryGCSURIFormat = "gs://%s/%s/%d/%s/*.parquet.gz"
 )
 
-type BigQueryExportConfig struct {
+var (
+	bigqueryTableDateSufixRegex = regexp.MustCompile(`.+_(\d+)$`)
+	bigqueryTableDateFormat     = "20060102"
+)
+
+type BigQueryDatasetExportConfig struct {
 	BucketName  string
 	DatasetName string
-	Dataset     string
 	ProjectID   string
 	GCSLocation string
+	FilterAfter time.Time
 }
 
-type BigQueryExport struct {
-	config BigQueryExportConfig
+type BigQueryDatasetExport struct {
+	config BigQueryDatasetExportConfig
 	client *bigquery.Client
 }
 
-func NewBigQueryExport(ctx context.Context, config BigQueryExportConfig) (*BigQueryExport, error) {
+func NewBigQueryExport(ctx context.Context, config BigQueryDatasetExportConfig) (*BigQueryDatasetExport, error) {
 	client, err := bigquery.NewClient(ctx, config.ProjectID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create bigquery client: %v", err)
 	}
-	return &BigQueryExport{
+
+	return &BigQueryDatasetExport{
 		config: config,
 		client: client,
 	}, nil
 }
 
-func (bqe *BigQueryExport) Export(ctx context.Context) error {
+func (bqe *BigQueryDatasetExport) Export(ctx context.Context) error {
 	// Get all table names from the configured dataset
-	tableIterator := bqe.client.Dataset(bqe.config.Dataset).Tables(ctx)
+	tableIterator := bqe.client.Dataset(bqe.config.DatasetName).Tables(ctx)
 	var tables []*bigquery.Table
 	for {
 		t, err := tableIterator.Next()
-		if errors.Is(err, iterator.Done) {
-			break
+		if err != nil {
+			if errors.Is(err, iterator.Done) {
+				break
+			} else {
+				return fmt.Errorf("failed to iterate dataset %w", err)
+			}
+		}
+		if isTableFiltered(t.TableID, bqe.config.FilterAfter) {
+			continue
 		}
 		tables = append(tables, t)
 	}
 
 	exportTimestamp := time.Now().Unix()
+	g, gctx := errgroup.WithContext(ctx)
 	// Run exportTableAsCompressedParquet for all tables and log
 	for _, t := range tables {
-		gcsURI := fmt.Sprintf(bigqueryGCSURIFormat, bqe.config.BucketName, t.DatasetID, t.TableID, exportTimestamp)
-		err := bqe.exportTableAsCompressedParquet(ctx, t, gcsURI)
-		if err != nil {
-			return fmt.Errorf("failed to export to %q :%w", gcsURI, err)
-		}
+		table := t
+		g.Go(func() error {
+			gcsURI := fmt.Sprintf(bigqueryGCSURIFormat, bqe.config.BucketName, table.DatasetID, exportTimestamp, table.TableID)
+			err := bqe.exportTableAsCompressedParquet(gctx, table, gcsURI)
+			if err != nil {
+				return fmt.Errorf("failed to export to table %q with URI %q :%w", table.TableID, gcsURI, err)
+			}
+			return nil
+		})
 	}
-
-	return nil
+	return g.Wait()
 }
 
 // exportTableAsCompressedParquet demonstrates using an export job to
 // write the contents of a table into Cloud Storage as compressed CSV.
-func (bqe *BigQueryExport) exportTableAsCompressedParquet(ctx context.Context, table *bigquery.Table, gcsURI string) error {
+func (bqe *BigQueryDatasetExport) exportTableAsCompressedParquet(ctx context.Context, table *bigquery.Table, gcsURI string) error {
 	gcsRef := bigquery.NewGCSReference(gcsURI)
 	gcsRef.Compression = bigquery.Gzip
 	gcsRef.DestinationFormat = bigquery.Parquet
@@ -86,4 +111,19 @@ func (bqe *BigQueryExport) exportTableAsCompressedParquet(ctx context.Context, t
 		return err
 	}
 	return nil
+}
+
+func isTableFiltered(tableName string, filterAfter time.Time) bool {
+	dateSuffix := bigqueryTableDateSufixRegex.FindStringSubmatch(tableName)
+	if len(dateSuffix) > 0 {
+		tableDate, err := time.Parse(bigqueryTableDateFormat, dateSuffix[1])
+		if err != nil {
+			return false
+		}
+
+		if tableDate.Before(filterAfter) {
+			return true
+		}
+	}
+	return false
 }
