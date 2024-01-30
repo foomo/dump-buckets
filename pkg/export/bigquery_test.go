@@ -2,7 +2,6 @@ package export
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 
@@ -11,17 +10,16 @@ import (
 
 func Test_Export(t *testing.T) {
 	ctx := context.Background()
-	os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", "/Users/smartinov/globus-infrastructure/.auth/globus-webshop-master-fc4e39ceee8f.json")
 	export, err := NewBigQueryExport(ctx, BigQueryDatasetExportConfig{
 		BucketName:  "bigquery-backup-example",
-		DatasetName: "Akeneo",
-		ProjectID:   "globus-datahub-dev",
+		DatasetName: "8591420",
+		ProjectID:   "globus-datahub",
 		GCSLocation: "europe-west6",
-		FilterAfter: time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
+		FilterAfter: time.Now().Add(-7 * 24 * time.Hour),
 	})
 	require.NoError(t, err)
 
-	err = export.Export(ctx)
+	_, err = export.Export(ctx)
 	require.NoError(t, err)
 }
 

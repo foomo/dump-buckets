@@ -26,12 +26,17 @@ Export github repositories using the web API with HTTP requests.
 
 Exports mongo databases to the specified bucket.
 
+### BigQuery
+
+Exports bigquery datasets
+
 ## Usage
 
 - To run the `execute` command: ``/dumpb execute -- echo "hello"``
 - To run the `contentful` command: (Add usage details)
 - To run the `github` command: (Add usage details)
 - To run the `mongo` command: (Add usage details)
+- To run the `bigquery' command (Add usage details)
 
 ## License
 
