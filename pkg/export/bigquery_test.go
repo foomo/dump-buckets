@@ -21,7 +21,7 @@ func Test_Export(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	err = export.Export(ctx)
+	_, err = export.Export(ctx)
 	require.NoError(t, err)
 }
 
