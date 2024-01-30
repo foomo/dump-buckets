@@ -22,8 +22,7 @@ func NewContentfulExport(_ context.Context, config ContentfulExportConfig) (*Con
 	return &ContentfulExport{config: config}, nil
 }
 
-//	sh "contentful-cli space export --use-verbose-renderer --management-token='${token}' --space-id=${spaceID} --export-dir=/backups --max-allowed-limit=100"
-
+// sh "contentful-cli space export --use-verbose-renderer --management-token='${token}' --space-id=${spaceID} --export-dir=/backups --max-allowed-limit=100"
 func (ce *ContentfulExport) Export(ctx context.Context, writer io.Writer) error {
 	tdir, err := os.MkdirTemp("", "")
 	if err != nil {
