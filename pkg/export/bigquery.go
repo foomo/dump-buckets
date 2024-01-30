@@ -85,7 +85,7 @@ func (bqe *BigQueryDatasetExport) Export(ctx context.Context) (string, error) {
 			return nil
 		})
 	}
-	return "", g.Wait()
+	return fmt.Sprintf(bigqueryGCSURIFormat, bqe.config.BucketName, bqe.config.DatasetName, exportTimestamp, "*"), g.Wait()
 }
 
 // exportTableAsCompressedParquet demonstrates using an export job to
