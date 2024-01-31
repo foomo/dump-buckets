@@ -48,6 +48,9 @@ func init() {
 }
 
 func mustParseDuration(value string) time.Duration {
+	if value == "" {
+		return time.Duration(0)
+	}
 	duration, err := time.ParseDuration(value)
 	if err != nil {
 		panic(fmt.Errorf("failed to parse duration: %w", err))
