@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/bigquery"
@@ -23,16 +26,16 @@ const (
 )
 
 var (
-	bigqueryTableDateSufixRegex = regexp.MustCompile(`.+_(\d+)$`)
+	bigqueryTableDateSufixRegex = regexp.MustCompile(`^.+_(\d{8})$`)
 	bigqueryTableDateFormat     = "20060102"
 )
 
 type BigQueryDatasetExportConfig struct {
-	BucketName  string
-	DatasetName string
-	ProjectID   string
-	GCSLocation string
-	FilterAfter time.Time
+	BucketName      string
+	ProjectID       string
+	GCSLocation     string
+	FilterAfter     time.Time
+	ExcludePatterns []string
 }
 
 type BigQueryDatasetExport struct {
@@ -52,24 +55,55 @@ func NewBigQueryExport(ctx context.Context, config BigQueryDatasetExportConfig) 
 	}, nil
 }
 
-func (bqe *BigQueryDatasetExport) Export(ctx context.Context) (string, error) {
-	// Get all table names from the configured dataset
-	tableIterator := bqe.client.Dataset(bqe.config.DatasetName).Tables(ctx)
+func (bqe *BigQueryDatasetExport) Export(ctx context.Context, l *slog.Logger) (string, error) {
+	if l == nil {
+		l = slog.Default()
+	}
+	// get all datasets
+	datasetIterator := bqe.client.Datasets(ctx)
+	var outputPaths []string
+	for {
+		dataset, err := datasetIterator.Next()
+		if errors.Is(err, iterator.Done) {
+			break
+		}
+		if err != nil {
+			return "", fmt.Errorf("failed to iterate datasets: %w", err)
+		}
+		outputPath, err := bqe.exportDataset(ctx, l, dataset)
+		if err != nil {
+			// Continue exporting other datasets
+			l.Error("Failed to export dataset, continuing dump...", slog.Any("error", err), slog.String("dataset", dataset.DatasetID))
+		}
+		outputPaths = append(outputPaths, outputPath)
+	}
+	return "", nil
+}
+
+func (bqe *BigQueryDatasetExport) exportDataset(ctx context.Context, l *slog.Logger, dataset *bigquery.Dataset) (string, error) {
+	tableIterator := dataset.Tables(ctx)
 	var tables []*bigquery.Table
+	var tableNames []string
 	for {
 		t, err := tableIterator.Next()
-		if err != nil {
-			if errors.Is(err, iterator.Done) {
-				break
-			} else {
-				return "", fmt.Errorf("failed to iterate dataset %w", err)
-			}
+		if errors.Is(err, iterator.Done) {
+			break
 		}
-		if isTableFiltered(t.TableID, bqe.config.FilterAfter) {
+		if err != nil {
+			return "", fmt.Errorf("failed to iterate dataset %w", err)
+		}
+		excluded, err := isTableExcluded(t, bqe.config.ExcludePatterns, bqe.config.FilterAfter)
+		if err != nil {
+			return "", fmt.Errorf("failed to check if table is excluded: %w", err)
+		}
+		if excluded {
 			continue
 		}
 		tables = append(tables, t)
+		tableNames = append(tableNames, t.TableID)
 	}
+
+	l.InfoContext(ctx, "Starting export...", slog.String("dataset", dataset.DatasetID), slog.Any("tables", strings.Join(tableNames, ", ")))
 
 	exportTimestamp := time.Now().Unix()
 	g, gctx := errgroup.WithContext(ctx)
@@ -85,7 +119,7 @@ func (bqe *BigQueryDatasetExport) Export(ctx context.Context) (string, error) {
 			return nil
 		})
 	}
-	return fmt.Sprintf(bigqueryGCSURIFormat, bqe.config.BucketName, bqe.config.DatasetName, exportTimestamp, "*"), g.Wait()
+	return fmt.Sprintf(bigqueryGCSURIFormat, bqe.config.BucketName, dataset.DatasetID, exportTimestamp, "*"), g.Wait()
 }
 
 // exportTableAsCompressedParquet demonstrates using an export job to
@@ -113,17 +147,29 @@ func (bqe *BigQueryDatasetExport) exportTableAsCompressedParquet(ctx context.Con
 	return nil
 }
 
-func isTableFiltered(tableName string, filterAfter time.Time) bool {
-	dateSuffix := bigqueryTableDateSufixRegex.FindStringSubmatch(tableName)
+func isTableExcluded(t *bigquery.Table, patterns []string, excludeBefore time.Time) (bool, error) {
+	tableKey := fmt.Sprintf("%s.%s", t.DatasetID, t.TableID)
+	for _, p := range patterns {
+		matched, err := filepath.Match(p, tableKey)
+		if err != nil {
+			return false, fmt.Errorf("pattern %s is malformed: %w", p, err)
+		}
+
+		if matched {
+			return true, nil
+		}
+	}
+
+	dateSuffix := bigqueryTableDateSufixRegex.FindStringSubmatch(t.TableID)
 	if len(dateSuffix) > 0 {
 		tableDate, err := time.Parse(bigqueryTableDateFormat, dateSuffix[1])
 		if err != nil {
-			return false
+			return false, fmt.Errorf("table date format is invalid: %w", err)
 		}
 
-		if tableDate.Before(filterAfter) {
-			return true
+		if tableDate.Before(excludeBefore) {
+			return true, nil
 		}
 	}
-	return false
+	return false, nil
 }

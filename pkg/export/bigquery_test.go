@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"cloud.google.com/go/bigquery"
 	"github.com/stretchr/testify/require"
 )
 
@@ -12,73 +13,89 @@ func Test_Export(t *testing.T) {
 	ctx := context.Background()
 	export, err := NewBigQueryExport(ctx, BigQueryDatasetExportConfig{
 		BucketName:  "bigquery-backup-example",
-		DatasetName: "8591420",
 		ProjectID:   "globus-datahub",
 		GCSLocation: "europe-west6",
-		FilterAfter: time.Now().Add(-7 * 24 * time.Hour),
+		FilterAfter: time.Now().Add(-8 * 24 * time.Hour),
+		ExcludePatterns: []string{
+			"SAS.GPredictiveScore*",
+		},
 	})
 	require.NoError(t, err)
 
-	_, err = export.Export(ctx)
+	_, err = export.Export(ctx, nil)
 	require.NoError(t, err)
 }
 
-func TestIsTableFiltered(t *testing.T) {
-	type args struct {
-		tableName   string
-		filterAfter time.Time
-	}
+func TestIsTableExcluded(t *testing.T) {
 	tests := []struct {
-		name string
-		args args
-		want bool
+		name          string
+		table         *bigquery.Table
+		patterns      []string
+		excludeBefore time.Time
+		want          bool
+		wantErr       bool
 	}{
 		{
-			name: "TableWithDateSuffixBeforeFilter",
-			args: args{
-				tableName:   "table_20220301",
-				filterAfter: time.Date(2023, 3, 2, 0, 0, 0, 0, time.UTC),
-			},
-			want: true,
+			name:     "exclude wildcard match",
+			table:    &bigquery.Table{DatasetID: "SAS", TableID: "GPredictiveScore"},
+			patterns: []string{"SAS.GPredictiveScore*"},
+			want:     true,
+			wantErr:  false,
 		},
 		{
-			name: "TableWithDateSuffixAfterFilter",
-			args: args{
-				tableName:   "table_20230501",
-				filterAfter: time.Date(2023, 3, 2, 0, 0, 0, 0, time.UTC),
-			},
-			want: false,
+			name:     "exclude wildcard match extended",
+			table:    &bigquery.Table{DatasetID: "SAS", TableID: "GPredictiveScoreSAP"},
+			patterns: []string{"SAS.GPredictiveScore*"},
+			want:     true,
+			wantErr:  false,
 		},
 		{
-			name: "TableWithInvalidDateSuffix",
-			args: args{
-				tableName:   "table_20223001",
-				filterAfter: time.Date(2023, 3, 2, 0, 0, 0, 0, time.UTC),
-			},
-			want: false,
+			name:     "exclude exact match",
+			table:    &bigquery.Table{DatasetID: "SAS", TableID: "GPredictiveScore"},
+			patterns: []string{"SAS.GPredictiveScore"},
+			want:     true,
+			wantErr:  false,
 		},
 		{
-			name: "TableWithoutDateSuffix",
-			args: args{
-				tableName:   "table",
-				filterAfter: time.Date(2023, 3, 2, 0, 0, 0, 0, time.UTC),
-			},
-			want: false,
+			name:     "include excluding exact match",
+			table:    &bigquery.Table{DatasetID: "SAS", TableID: "GPredictiveScoreSAP"},
+			patterns: []string{"SAS.GPredictiveScore"},
+			want:     false,
+			wantErr:  false,
 		},
 		{
-			name: "TableWithEmptyName",
-			args: args{
-				tableName:   "",
-				filterAfter: time.Date(2023, 3, 2, 0, 0, 0, 0, time.UTC),
-			},
-			want: false,
+			name:          "exclude time match",
+			table:         &bigquery.Table{DatasetID: "SAS", TableID: "GPredictiveScoreSAP_20200101"},
+			patterns:      []string{""},
+			excludeBefore: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+			want:          true,
+			wantErr:       false,
+		},
+		{
+			name:          "include time match",
+			table:         &bigquery.Table{DatasetID: "SAS", TableID: "GPredictiveScoreSAP_20210101"},
+			patterns:      []string{""},
+			excludeBefore: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+			want:          false,
+			wantErr:       false,
+		},
+		{
+			name:     "not excluded",
+			table:    &bigquery.Table{DatasetID: "SAS", TableID: "GPredictiveScoreSAP_20210101"},
+			patterns: []string{""},
+			want:     false,
+			wantErr:  false,
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := isTableFiltered(tt.args.tableName, tt.args.filterAfter); got != tt.want {
-				t.Errorf("isTableFiltered() = %v, want %v", got, tt.want)
+			got, err := isTableExcluded(tt.table, tt.patterns, tt.excludeBefore)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("isTableExcluded() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("isTableExcluded() = %v, want %v", got, tt.want)
 			}
 		})
 	}
