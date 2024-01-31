@@ -70,10 +70,12 @@ func (bqe *BigQueryDatasetExport) Export(ctx context.Context, l *slog.Logger) (s
 		if err != nil {
 			return "", fmt.Errorf("failed to iterate datasets: %w", err)
 		}
+		l := l.With("dataset", dataset.DatasetID)
 		outputPath, err := bqe.exportDataset(ctx, l, dataset)
 		if err != nil {
 			// Continue exporting other datasets
 			l.Error("Failed to export dataset, continuing dump...", slog.Any("error", err), slog.String("dataset", dataset.DatasetID))
+			continue
 		}
 		outputPaths = append(outputPaths, outputPath)
 	}
@@ -82,6 +84,7 @@ func (bqe *BigQueryDatasetExport) Export(ctx context.Context, l *slog.Logger) (s
 
 func (bqe *BigQueryDatasetExport) exportDataset(ctx context.Context, l *slog.Logger, dataset *bigquery.Dataset) (string, error) {
 	tableIterator := dataset.Tables(ctx)
+
 	var tables []*bigquery.Table
 	var tableNames []string
 	for {
@@ -96,14 +99,25 @@ func (bqe *BigQueryDatasetExport) exportDataset(ctx context.Context, l *slog.Log
 		if err != nil {
 			return "", fmt.Errorf("failed to check if table is excluded: %w", err)
 		}
-		if excluded {
+		if excluded == true {
+			continue
+		}
+		md, err := t.Metadata(ctx, bigquery.WithMetadataView(bigquery.BasicMetadataView))
+		if err != nil {
+			return "", fmt.Errorf("failed to get table metadata: %w", err)
+		}
+		if md.Type != bigquery.RegularTable {
 			continue
 		}
 		tables = append(tables, t)
 		tableNames = append(tableNames, t.TableID)
 	}
 
-	l.InfoContext(ctx, "Starting export...", slog.String("dataset", dataset.DatasetID), slog.Any("tables", strings.Join(tableNames, ", ")))
+	if len(tables) > 0 {
+		l.Info("No tables on dataset or all tables are excluded")
+		return "", nil
+	}
+	l.Info("Starting export...", slog.Any("tables", strings.Join(tableNames, ", ")))
 
 	exportTimestamp := time.Now().Unix()
 	g, gctx := errgroup.WithContext(ctx)
