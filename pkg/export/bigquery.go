@@ -113,7 +113,7 @@ func (bqe *BigQueryDatasetExport) exportDataset(ctx context.Context, l *slog.Log
 		tableNames = append(tableNames, t.TableID)
 	}
 
-	if len(tables) > 0 {
+	if len(tables) == 0 {
 		l.Info("No tables on dataset or all tables are excluded")
 		return "", nil
 	}
