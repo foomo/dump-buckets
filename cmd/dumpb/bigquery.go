@@ -48,7 +48,7 @@ func init() {
 	rootCmd.AddCommand(bigQueryCmd)
 	bigQueryCmd.Flags().StringVar(&bigqueryProjectID, "bigquery-project-id", os.Getenv("BIGQUERY_PROJECT_ID"), "specifies the bigquery project ID")
 	bigQueryCmd.Flags().StringVar(&bigqueryLocation, "bigquery-location", os.Getenv("BIGQUERY_LOCATION"), "specifies the bigquery location")
-	bigQueryCmd.Flags().DurationVar(&bigqueryFilterDuration, "bigquery-filter-duration", mustParseDuration(os.Getenv("globus-datahub\t")), "specifies the bigquery filter after duration")
+	bigQueryCmd.Flags().DurationVar(&bigqueryFilterDuration, "bigquery-filter-duration", mustParseDuration(os.Getenv("BIGQUERY_FILTER_DURATION")), "specifies the bigquery filter after duration")
 	bigQueryCmd.Flags().StringSliceVar(&bigqueryExcludePatterns, "bigquery-exclude-patterns", strings.Split(os.Getenv("BIGQUERY_EXCLUDE_PATTERNS"), ","), "specifies the bigquery exclude patterns")
 }
 
