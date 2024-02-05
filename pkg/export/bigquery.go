@@ -147,7 +147,7 @@ func (bqe *BigQueryDatasetExport) exportDataset(ctx context.Context, l *slog.Log
 	for _, t := range tables {
 		table := t
 		g.Go(func() error {
-			gcsURI := fmt.Sprintf("%s/%s", bigqueryGCSURIDataSetPrefix, table.TableID)
+			gcsURI := fmt.Sprintf("%s/%s/*.parquet.gz", bigqueryGCSURIDataSetPrefix, table.TableID)
 			err := bqe.exportTableAsCompressedParquet(groupCtx, table, gcsURI)
 			if err != nil {
 				return fmt.Errorf("failed to export to table %q with URI %q :%w", table.TableID, gcsURI, err)
