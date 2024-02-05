@@ -6,19 +6,25 @@ import (
 	"time"
 
 	"cloud.google.com/go/bigquery"
+	"github.com/foomo/dump-buckets/pkg/storage"
 	"github.com/stretchr/testify/require"
 )
 
 func Test_Export(t *testing.T) {
 	ctx := context.Background()
+	bucketName := "bigquery-backup-example"
+
+	gcs, err := storage.NewGCSStorage(ctx, bucketName)
+	require.NoError(t, err)
 	export, err := NewBigQueryExport(ctx, BigQueryDatasetExportConfig{
-		BucketName:  "bigquery-backup-example",
+		BucketName:  bucketName,
 		ProjectID:   "globus-datahub",
 		GCSLocation: "europe-west6",
 		FilterAfter: time.Now().Add(-8 * 24 * time.Hour),
 		ExcludePatterns: []string{
 			"SAS.GPredictiveScore*",
 		},
+		Storage: gcs,
 	})
 	require.NoError(t, err)
 

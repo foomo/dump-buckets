@@ -23,12 +23,17 @@ var bigQueryCmd = &cobra.Command{
 	Use:   "bigquery",
 	Short: "Dumps contents of bigquery via ",
 	RunE: exportWrapper("BigQuery", func(ctx context.Context, l *slog.Logger, storage storageWriter) (string, error) {
+		storage, err := configuredStorage(ctx)
+		if err != nil {
+			return "", err
+		}
 		config := export.BigQueryDatasetExportConfig{
 			BucketName:      storageBucketName,
 			ProjectID:       bigqueryProjectID,
 			GCSLocation:     bigqueryLocation,
 			FilterAfter:     time.Now().Add(-bigqueryFilterDuration),
 			ExcludePatterns: bigqueryExcludePatterns,
+			Storage:         storage,
 		}
 		export, err := export.NewBigQueryExport(ctx, config)
 		if err != nil {
