@@ -81,7 +81,7 @@ func (bqe *BigQueryDatasetExport) Export(ctx context.Context, l *slog.Logger) (s
 			return "", fmt.Errorf("failed to iterate datasets: %w", err)
 		}
 
-		bigqueryGCSURIDataSetPrefix := filepath.Join(bigqueryGCSURIPrefix, dataset.DatasetID)
+		bigqueryGCSURIDataSetPrefix := fmt.Sprintf("%s/%s", bigqueryGCSURIPrefix, dataset.DatasetID)
 		l := l.With(
 			slog.String("dataset", dataset.DatasetID),
 			slog.String("path", bigqueryGCSURIDataSetPrefix),
@@ -147,7 +147,7 @@ func (bqe *BigQueryDatasetExport) exportDataset(ctx context.Context, l *slog.Log
 	for _, t := range tables {
 		table := t
 		g.Go(func() error {
-			gcsURI := filepath.Join(bigqueryGCSURIDataSetPrefix, table.TableID)
+			gcsURI := fmt.Sprintf("%s/%s", bigqueryGCSURIDataSetPrefix, table.TableID)
 			err := bqe.exportTableAsCompressedParquet(groupCtx, table, gcsURI)
 			if err != nil {
 				return fmt.Errorf("failed to export to table %q with URI %q :%w", table.TableID, gcsURI, err)
