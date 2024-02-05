@@ -21,8 +21,8 @@ const (
 	// - {bucket} is the name of the Google Cloud Storage bucket
 	// - {dataset} is the name of the BigQuery dataset
 	// - {table} is the name of the BigQuery table
-	// - {timestamp} is the current Unix timestamp
-	bigqueryGCSURIFormat = "gs://%s/%s/%d/%s/*.parquet.gz"
+	// - {timestamp} is the current humanized timestamp
+	bigqueryGCSURIFormat = "gs://%s/%s/%s/%s/*.parquet.gz"
 )
 
 var (
@@ -48,7 +48,6 @@ func NewBigQueryExport(ctx context.Context, config BigQueryDatasetExportConfig) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create bigquery client: %v", err)
 	}
-
 	return &BigQueryDatasetExport{
 		config: config,
 		client: client,
@@ -119,7 +118,7 @@ func (bqe *BigQueryDatasetExport) exportDataset(ctx context.Context, l *slog.Log
 	}
 	l.Info("Starting export...", slog.Any("tables", strings.Join(tableNames, ", ")))
 
-	exportTimestamp := time.Now().Unix()
+	exportTimestamp := time.Now().Format(TimestampFormat)
 	g, gctx := errgroup.WithContext(ctx)
 	// Run exportTableAsCompressedParquet for all tables and log
 	for _, t := range tables {
