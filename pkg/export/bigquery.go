@@ -64,11 +64,18 @@ func (bqe *BigQueryDatasetExport) Export(ctx context.Context, l *slog.Logger) (s
 	exportTimestamp := time.Now().Format(TimestampFormat)
 	bigqueryGCSURIPrefix := fmt.Sprintf(bigqueryGCSURIPrefix, bqe.config.BucketName, exportTimestamp)
 
+	l.With(
+		slog.Any("filterAfter", bqe.config.FilterAfter),
+		slog.Any("excludePatterns", bqe.config.ExcludePatterns),
+	).Info("Starting export")
+
 	// Export Information Schemata
-	err := bqe.storeQueryResultAsGzippedJSON(ctx, path.Join(exportTimestamp, "INFORMATION_SCHEMA.SCHEMATA.json.gz"), fmt.Sprintf(bigqueryQueryDataSetSchema, bqe.config.GCSLocation))
+	schemaPath := path.Join(exportTimestamp, "INFORMATION_SCHEMA.SCHEMATA.json.gz")
+	err := bqe.storeQueryResultAsGzippedJSON(ctx, schemaPath, fmt.Sprintf(bigqueryQueryDataSetSchema, bqe.config.GCSLocation))
 	if err != nil {
 		return "", fmt.Errorf("failed to store schemas: %w", err)
 	}
+	l.Info("Schema export complete", "path", schemaPath)
 	// Region
 	// get all datasets
 	datasetIterator := bqe.client.Datasets(ctx)
@@ -87,10 +94,12 @@ func (bqe *BigQueryDatasetExport) Export(ctx context.Context, l *slog.Logger) (s
 			slog.String("path", bigqueryGCSURIDataSetPrefix),
 		)
 		// Export Dataset Schema
+		tableSchemaPath := path.Join(exportTimestamp, dataset.DatasetID, "INFORMATION_SCHEMA.TABLES.json.gz")
 		err = bqe.storeQueryResultAsGzippedJSON(ctx, path.Join(exportTimestamp, dataset.DatasetID, "INFORMATION_SCHEMA.TABLES.json.gz"), fmt.Sprintf(bigqueryQueryTableSchema, dataset.ProjectID, dataset.DatasetID))
 		if err != nil {
 			return "", fmt.Errorf("failed to store schema for dataset %s: %w", dataset.DatasetID, err)
 		}
+		l.Info("Table schema export complete", "path", tableSchemaPath)
 
 		// Export Dataset Data
 		err = bqe.exportDataset(ctx, l, dataset, bigqueryGCSURIDataSetPrefix)
