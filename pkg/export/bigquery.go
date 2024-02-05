@@ -1,10 +1,14 @@
 package export
 
 import (
+	"compress/gzip"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -17,17 +21,15 @@ import (
 
 const (
 	// bigqueryGCSURIFormat is a constant that represents the format of a Google Cloud Storage URI used for exporting BigQuery tables to compressed Parquet format.
-	// The format of the URI is "gs://{bucket}/{dataset}/{table}/{timestamp}/*.parquet.gz", where:
-	// - {bucket} is the name of the Google Cloud Storage bucket
-	// - {dataset} is the name of the BigQuery dataset
-	// - {table} is the name of the BigQuery table
-	// - {timestamp} is the current humanized timestamp
-	bigqueryGCSURIFormat = "gs://%s/%s/%s/%s/*.parquet.gz"
+	// The format of the URI is "gs://{bucket}/{timestamp}/{dataset}/{table}//*.parquet.gz", where:
+	bigqueryGCSURIPrefix       = "gs://%s/%s"
+	bigqueryQueryDataSetSchema = "SELECT * FROM region-%s.INFORMATION_SCHEMA.SCHEMATA"
+	bigqueryQueryTableSchema   = "SELECT * FROM %s.%s.INFORMATION_SCHEMA.TABLES"
 )
 
 var (
-	bigqueryTableDateSufixRegex = regexp.MustCompile(`^.+_(\d{8})$`)
-	bigqueryTableDateFormat     = "20060102"
+	bigqueryTableDateSuffixRegex = regexp.MustCompile(`^.+_(\d{8})$`)
+	bigqueryTableDateFormat      = "20060102"
 )
 
 type BigQueryDatasetExportConfig struct {
@@ -36,6 +38,7 @@ type BigQueryDatasetExportConfig struct {
 	GCSLocation     string
 	FilterAfter     time.Time
 	ExcludePatterns []string
+	Storage         Storage
 }
 
 type BigQueryDatasetExport struct {
@@ -46,7 +49,7 @@ type BigQueryDatasetExport struct {
 func NewBigQueryExport(ctx context.Context, config BigQueryDatasetExportConfig) (*BigQueryDatasetExport, error) {
 	client, err := bigquery.NewClient(ctx, config.ProjectID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create bigquery client: %v", err)
+		return nil, fmt.Errorf("failed to create bigquery client: %w", err)
 	}
 	return &BigQueryDatasetExport{
 		config: config,
@@ -58,9 +61,17 @@ func (bqe *BigQueryDatasetExport) Export(ctx context.Context, l *slog.Logger) (s
 	if l == nil {
 		l = slog.Default()
 	}
+	exportTimestamp := time.Now().Format(TimestampFormat)
+	bigqueryGCSURIPrefix := fmt.Sprintf(bigqueryGCSURIPrefix, bqe.config.BucketName, exportTimestamp)
+
+	// Export Information Schemata
+	err := bqe.storeQueryResultAsGzippedJSON(ctx, path.Join(exportTimestamp, "INFORMATION_SCHEMA.SCHEMATA.json.gz"), fmt.Sprintf(bigqueryQueryDataSetSchema, bqe.config.GCSLocation))
+	if err != nil {
+		return "", fmt.Errorf("failed to store schemas: %w", err)
+	}
+	// Region
 	// get all datasets
 	datasetIterator := bqe.client.Datasets(ctx)
-	var outputPaths []string
 	for {
 		dataset, err := datasetIterator.Next()
 		if errors.Is(err, iterator.Done) {
@@ -69,19 +80,31 @@ func (bqe *BigQueryDatasetExport) Export(ctx context.Context, l *slog.Logger) (s
 		if err != nil {
 			return "", fmt.Errorf("failed to iterate datasets: %w", err)
 		}
-		l := l.With("dataset", dataset.DatasetID)
-		outputPath, err := bqe.exportDataset(ctx, l, dataset)
+
+		bigqueryGCSURIDataSetPrefix := filepath.Join(bigqueryGCSURIPrefix, dataset.DatasetID)
+		l := l.With(
+			slog.String("dataset", dataset.DatasetID),
+			slog.String("path", bigqueryGCSURIDataSetPrefix),
+		)
+		// Export Dataset Schema
+		err = bqe.storeQueryResultAsGzippedJSON(ctx, path.Join(exportTimestamp, dataset.DatasetID, "INFORMATION_SCHEMA.TABLES.json.gz"), fmt.Sprintf(bigqueryQueryTableSchema, dataset.ProjectID, dataset.DatasetID))
+		if err != nil {
+			return "", fmt.Errorf("failed to store schema for dataset %s: %w", dataset.DatasetID, err)
+		}
+
+		// Export Dataset Data
+		err = bqe.exportDataset(ctx, l, dataset, bigqueryGCSURIDataSetPrefix)
 		if err != nil {
 			// Continue exporting other datasets
 			l.Error("Failed to export dataset, continuing dump...", slog.Any("error", err), slog.String("dataset", dataset.DatasetID))
 			continue
 		}
-		outputPaths = append(outputPaths, outputPath)
+		l.Info("Dataset export complete")
 	}
-	return "", nil
+	return bigqueryGCSURIPrefix, nil
 }
 
-func (bqe *BigQueryDatasetExport) exportDataset(ctx context.Context, l *slog.Logger, dataset *bigquery.Dataset) (string, error) {
+func (bqe *BigQueryDatasetExport) exportDataset(ctx context.Context, l *slog.Logger, dataset *bigquery.Dataset, bigqueryGCSURIDataSetPrefix string) error {
 	tableIterator := dataset.Tables(ctx)
 
 	var tables []*bigquery.Table
@@ -92,47 +115,82 @@ func (bqe *BigQueryDatasetExport) exportDataset(ctx context.Context, l *slog.Log
 			break
 		}
 		if err != nil {
-			return "", fmt.Errorf("failed to iterate dataset %w", err)
+			return fmt.Errorf("failed to iterate dataset %w", err)
 		}
 		excluded, err := isTableExcluded(t, bqe.config.ExcludePatterns, bqe.config.FilterAfter)
 		if err != nil {
-			return "", fmt.Errorf("failed to check if table is excluded: %w", err)
+			return fmt.Errorf("failed to check if table is excluded: %w", err)
 		}
-		if excluded == true {
+		if excluded {
 			continue
 		}
 		md, err := t.Metadata(ctx, bigquery.WithMetadataView(bigquery.BasicMetadataView))
 		if err != nil {
-			return "", fmt.Errorf("failed to get table metadata: %w", err)
+			return fmt.Errorf("failed to get table metadata: %w", err)
 		}
 		if md.Type != bigquery.RegularTable {
 			continue
 		}
+
 		tables = append(tables, t)
 		tableNames = append(tableNames, t.TableID)
 	}
 
 	if len(tables) == 0 {
 		l.Info("No tables on dataset or all tables are excluded")
-		return "", nil
+		return nil
 	}
 	l.Info("Starting export...", slog.Any("tables", strings.Join(tableNames, ", ")))
 
-	exportTimestamp := time.Now().Format(TimestampFormat)
-	g, gctx := errgroup.WithContext(ctx)
+	g, groupCtx := errgroup.WithContext(ctx)
 	// Run exportTableAsCompressedParquet for all tables and log
 	for _, t := range tables {
 		table := t
 		g.Go(func() error {
-			gcsURI := fmt.Sprintf(bigqueryGCSURIFormat, bqe.config.BucketName, table.DatasetID, exportTimestamp, table.TableID)
-			err := bqe.exportTableAsCompressedParquet(gctx, table, gcsURI)
+			gcsURI := filepath.Join(bigqueryGCSURIDataSetPrefix, table.TableID)
+			err := bqe.exportTableAsCompressedParquet(groupCtx, table, gcsURI)
 			if err != nil {
 				return fmt.Errorf("failed to export to table %q with URI %q :%w", table.TableID, gcsURI, err)
 			}
 			return nil
 		})
 	}
-	return fmt.Sprintf(bigqueryGCSURIFormat, bqe.config.BucketName, dataset.DatasetID, exportTimestamp, "*"), g.Wait()
+	return g.Wait()
+}
+
+func (bqe *BigQueryDatasetExport) storeQueryResultAsGzippedJSON(ctx context.Context, storagePath string, query string) error {
+	writer, err := bqe.config.Storage.NewWriter(ctx, storagePath)
+	if err != nil {
+		return fmt.Errorf("failed to initialize writer: %w", err)
+	}
+	defer writer.Close()
+
+	gzipWriter := gzip.NewWriter(writer)
+	defer gzipWriter.Close()
+
+	return bqe.executeQueryAndWriteJSON(ctx, query, gzipWriter)
+}
+
+func (bqe *BigQueryDatasetExport) executeQueryAndWriteJSON(ctx context.Context, query string, writer io.Writer) error {
+	it, err := bqe.client.Query(query).Read(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to fetch schema exports: %w", err)
+	}
+	var rows []map[string]bigquery.Value
+	for {
+		data := map[string]bigquery.Value{}
+
+		err := it.Next(&data)
+		if errors.Is(err, iterator.Done) {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("failed to iterate dataset: %w", err)
+		}
+		rows = append(rows, data)
+	}
+
+	return json.NewEncoder(writer).Encode(rows)
 }
 
 // exportTableAsCompressedParquet demonstrates using an export job to
@@ -173,7 +231,7 @@ func isTableExcluded(t *bigquery.Table, patterns []string, excludeBefore time.Ti
 		}
 	}
 
-	dateSuffix := bigqueryTableDateSufixRegex.FindStringSubmatch(t.TableID)
+	dateSuffix := bigqueryTableDateSuffixRegex.FindStringSubmatch(t.TableID)
 	if len(dateSuffix) > 0 {
 		tableDate, err := time.Parse(bigqueryTableDateFormat, dateSuffix[1])
 		if err != nil {
