@@ -35,7 +35,7 @@ var mongoCmd = &cobra.Command{
 			return "", fmt.Errorf("failed in initializing mongo exporter: %w", err)
 		}
 
-		exportName := fmt.Sprintf("%s.%s.archive.gz", backupName, time.Now().Format(time.RFC3339))
+		exportName := fmt.Sprintf("%s.%s.archive.gz", backupName, time.Now().Format(export.TimestampFormat))
 		if backupName != "" {
 			exportName += fmt.Sprintf("%s.%s", backupName, exportName)
 		}

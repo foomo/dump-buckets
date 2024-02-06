@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/foomo/dump-buckets/pkg/export"
 	"github.com/spf13/cobra"
 )
 
@@ -71,7 +72,7 @@ var executeCmd = &cobra.Command{
 }
 
 func getExportName(ts time.Time) string {
-	exportName := fmt.Sprintf("%s/%s", backupName, ts.Format(time.RFC3339))
+	exportName := fmt.Sprintf("%s/%s", backupName, ts.Format(export.TimestampFormat))
 	if outputExt != "" {
 		exportName += outputExt
 	}

@@ -26,5 +26,6 @@ func NewGCSStorage(ctx context.Context, bucketName string) (*GCSBackup, error) {
 
 func (gcs *GCSBackup) NewWriter(ctx context.Context, path string) (writer io.WriteCloser, err error) {
 	obj := gcs.client.Bucket(gcs.bucketName).Object(path)
+
 	return obj.NewWriter(ctx), nil
 }

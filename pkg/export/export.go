@@ -11,6 +11,10 @@ import (
 	"strings"
 )
 
+const (
+	TimestampFormat = "20060102T150405"
+)
+
 type Storage interface {
 	NewWriter(ctx context.Context, path string) (writer io.WriteCloser, err error)
 }

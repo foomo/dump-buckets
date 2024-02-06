@@ -20,11 +20,13 @@ func exportWrapper(exporterName string, handler exporterHandler) func(cmd *cobra
 			slog.String("bucketName", storageBucketName),
 			slog.String("bucketVendor", storageBucketVendor),
 		)
+		l.Info("Configuring storage for vendor provider...")
 		vendorStorage, err := configuredStorage(ctx)
 		if err != nil {
 			return fmt.Errorf("failed in configuring storage: %w", err)
 		}
 
+		l.Info("Starting exporter...")
 		path, err := handler(ctx, l, vendorStorage)
 		if err != nil {
 			return err

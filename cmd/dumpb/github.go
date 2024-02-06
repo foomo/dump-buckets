@@ -33,7 +33,7 @@ var githubCmd = &cobra.Command{
 		if err != nil {
 			return "", err
 		}
-		exportName := fmt.Sprintf("%s.%s.%s.tar.gz", githubOrganization, githubRepository, time.Now().Format(time.RFC3339))
+		exportName := fmt.Sprintf("%s.%s.%s.tar.gz", githubOrganization, githubRepository, time.Now().Format(export.TimestampFormat))
 		if backupName != "" {
 			exportName += fmt.Sprintf("%s/%s", backupName, exportName)
 		}
