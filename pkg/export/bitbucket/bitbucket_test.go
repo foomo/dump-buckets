@@ -26,6 +26,8 @@ func TestExporter_Export(t *testing.T) {
 	require.NoError(t, err)
 
 	test, err := os.Create(filepath.Join(tdir, "clone.tar.gz"))
+	require.NoError(t, err)
+
 	err = e.Export(ctx, slog.Default(), test)
 	require.NoError(t, err)
 	test.Close()
