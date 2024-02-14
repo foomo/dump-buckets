@@ -25,6 +25,7 @@ type Storage interface {
 func Tar(
 	ctx context.Context,
 	src string,
+	compress bool,
 	writers ...io.Writer,
 ) error {
 	// ensure the src actually exists before trying to tar it
@@ -33,11 +34,14 @@ func Tar(
 	}
 
 	mw := io.MultiWriter(writers...)
+	writer := mw // default writer
+	if compress {
+		gzw := gzip.NewWriter(mw)
+		defer gzw.Close()
+		writer = gzw // compressing writer if compress is true
+	}
 
-	gzw := gzip.NewWriter(mw)
-	defer gzw.Close()
-
-	tw := tar.NewWriter(gzw)
+	tw := tar.NewWriter(writer)
 	defer tw.Close()
 
 	// walk path

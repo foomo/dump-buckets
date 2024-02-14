@@ -48,5 +48,5 @@ func (ce *ContentfulExport) Export(ctx context.Context, writer io.Writer) error 
 		return err
 	}
 	// Tar Output Directory
-	return Tar(ctx, tdir, writer)
+	return Tar(ctx, tdir, true, writer)
 }

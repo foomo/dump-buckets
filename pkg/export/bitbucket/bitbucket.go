@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/foomo/dump-buckets/pkg/export"
 	"github.com/go-git/go-git/v5"
@@ -15,16 +18,20 @@ import (
 
 var (
 	defaultAccountRepositoriesURL = "https://api.bitbucket.org/2.0/repositories/%s?pagelen=100&page=%d"
-	defaultCloneURL               = "https://x-token-auth:%s@bitbucket.org/%s/%s"
+	defaultCloneURL               = "https://bitbucket.org/%s/%s"
 )
 
 type Exporter struct {
-	config Config
+	config     Config
+	httpClient *http.Client
 }
 
 func NewExporter(_ context.Context, config Config) (*Exporter, error) {
 	return &Exporter{
 		config: config,
+		httpClient: &http.Client{
+			Timeout: 60 * time.Second,
+		},
 	}, nil
 }
 
@@ -33,11 +40,14 @@ type Config struct {
 	Token       string
 }
 
-func (e *Exporter) Export(ctx context.Context, writer io.Writer) error {
+func (e *Exporter) Export(ctx context.Context, l *slog.Logger, writer io.Writer) error {
+	l.Info("Starting bitbucket account export")
+
 	tdir, err := os.MkdirTemp("", "")
 	if err != nil {
 		return fmt.Errorf("failed to create temp output dir: %w", err)
 	}
+	defer os.RemoveAll(tdir)
 
 	repos, err := e.fetchAllRepositories(ctx)
 	if err != nil {
@@ -45,19 +55,36 @@ func (e *Exporter) Export(ctx context.Context, writer io.Writer) error {
 	}
 
 	for _, repo := range repos {
-		cloneURL := fmt.Sprintf(defaultCloneURL, e.config.Token, e.config.AccountName, repo.Slug)
-		outputPath := filepath.Join(tdir, repo.Slug)
-		_, err = git.PlainCloneContext(ctx, outputPath, false, &git.CloneOptions{
-			URL:      cloneURL,
-			Mirror:   true,
-			Progress: os.Stdout,
-		})
+		err := e.cloneGitRepository(ctx, l, tdir, repo.Slug)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to clone git repository: %w", err)
 		}
 	}
 
-	return export.Tar(ctx, tdir, writer)
+	l.Info("Taring git dump directory")
+	return export.Tar(ctx, tdir, true, writer)
+}
+
+func (e *Exporter) cloneGitRepository(ctx context.Context, l *slog.Logger, tdir string, repoSlug string) error {
+	l.Info("Cloning git repository", "repository", repoSlug)
+
+	cloneURL, err := url.Parse(fmt.Sprintf(defaultCloneURL, e.config.AccountName, repoSlug))
+	if err != nil {
+		return err
+	}
+
+	if e.config.Token != "" {
+		cloneURL.User = url.UserPassword("x-token-auth", e.config.Token)
+	}
+
+	outputPath := filepath.Join(tdir, repoSlug)
+	_, err = git.PlainCloneContext(ctx, outputPath, false, &git.CloneOptions{
+		URL:      cloneURL.String(),
+		Mirror:   true,
+		Progress: os.Stdout,
+	})
+
+	return err
 }
 
 func (e *Exporter) fetchAllRepositories(ctx context.Context) ([]Repository, error) {
@@ -66,7 +93,7 @@ func (e *Exporter) fetchAllRepositories(ctx context.Context) ([]Repository, erro
 	for {
 		repos, hasNextPage, err := e.fetchRepositoryPage(ctx, index)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to fetch repository page: %w", err)
 		}
 		allRepositories = append(allRepositories, repos...)
 		if !hasNextPage {
@@ -85,9 +112,11 @@ func (e *Exporter) fetchRepositoryPage(ctx context.Context, index int) (repos []
 	if err != nil {
 		return nil, false, err
 	}
-	req.Header.Set("Authorization", "Bearer "+cfg.Token)
+	if e.config.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+cfg.Token)
+	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := e.httpClient.Do(req)
 	if err != nil {
 		return nil, false, err
 	}

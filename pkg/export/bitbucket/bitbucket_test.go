@@ -2,10 +2,12 @@ package bitbucket
 
 import (
 	"context"
+	"log/slog"
 	"os"
+	"path/filepath"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -14,28 +16,31 @@ var (
 )
 
 func TestExporter_Export(t *testing.T) {
+	tdir := t.TempDir()
+
 	ctx := context.Background()
 	e, err := NewExporter(ctx, Config{
-		AccountName: "globusdigital",
+		AccountName: "fargo3d",
 		Token:       bitBucketToken,
 	})
 	require.NoError(t, err)
-	err = e.Export(ctx, nil)
-	require.NoError(t, err)
 
-	_, err = os.Create("/Users/smartinov/dump-buckets/dump.tar")
+	test, err := os.Create(filepath.Join(tdir, "clone.tar.gz"))
+	err = e.Export(ctx, slog.Default(), test)
 	require.NoError(t, err)
+	test.Close()
+
+	assert.FileExists(t, test.Name())
 }
 
 func TestExporter_fetchAllRepositories(t *testing.T) {
-	t.Skip()
 	ctx := context.Background()
 	e, err := NewExporter(ctx, Config{
-		AccountName: "globusdigital",
+		AccountName: "fargo3d",
 		Token:       bitBucketToken,
 	})
 	require.NoError(t, err)
 	repositories, err := e.fetchAllRepositories(ctx)
 	require.NoError(t, err)
-	spew.Dump(repositories)
+	require.NotNil(t, repositories)
 }

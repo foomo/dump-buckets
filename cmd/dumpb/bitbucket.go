@@ -1,7 +1,6 @@
 package dumpb
 
 import (
-	"compress/gzip"
 	"context"
 	"fmt"
 	"log/slog"
@@ -22,7 +21,7 @@ var (
 var bitbucketCmd = &cobra.Command{
 	Use:   "bitbucket",
 	Short: "Dumps bitbucket accounts in a destination bucket",
-	RunE: exportWrapper("GitHub", func(ctx context.Context, _ *slog.Logger, storage storageWriter) (string, error) {
+	RunE: exportWrapper("BitBucket", func(ctx context.Context, l *slog.Logger, storage storageWriter) (string, error) {
 		config := bitbucket.Config{
 			AccountName: bitbucketAccount,
 			Token:       bitbucketToken,
@@ -44,10 +43,7 @@ var bitbucketCmd = &cobra.Command{
 		}
 		defer writer.Close()
 
-		gzipWriter := gzip.NewWriter(writer)
-		defer gzipWriter.Close()
-
-		return exportPath, exporter.Export(ctx, gzipWriter)
+		return exportPath, exporter.Export(ctx, l, writer)
 	}),
 }
 
