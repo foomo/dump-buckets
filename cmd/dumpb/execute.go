@@ -49,7 +49,11 @@ var executeCmd = &cobra.Command{
 				defer writer.Close()
 
 				buf := bufio.NewWriter(writer)
-				defer buf.Flush()
+				defer func(buf *bufio.Writer) {
+					if err := buf.Flush(); err != nil {
+						l.With(slog.Any("error", err)).Error("Failed to flush buffered stream")
+					}
+				}(buf)
 
 				// Execute the command, skip first 2 arguments
 				cmd := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
@@ -58,7 +62,11 @@ var executeCmd = &cobra.Command{
 				if outputGzip {
 					// GZIP Write Output
 					gzipWriter := gzip.NewWriter(buf)
-					defer gzipWriter.Close()
+					defer func() {
+						if err := gzipWriter.Close(); err != nil {
+							l.With(slog.Any("error", err)).Error("Failed to close gzip writer")
+						}
+					}()
 					cmd.Stdout = gzipWriter // only write to bucket since dump will be in stdoud
 				} else {
 					cmd.Stdout = buf
