@@ -1,7 +1,7 @@
 # -----------------------------------------------------------------------------
 # Runtime
 # -----------------------------------------------------------------------------
-FROM --platform=$TARGETPLATFORM alpine:latest as runtime
+FROM --platform=$TARGETPLATFORM alpine:3.22.1 as runtime
 
 ENV TZ=Europe/Zurich
 ENV DEFAULT_TZ ${TZ}
