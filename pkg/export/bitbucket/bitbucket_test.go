@@ -16,6 +16,10 @@ var (
 )
 
 func TestExporter_Export(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
 	tdir := t.TempDir()
 
 	ctx := context.Background()
@@ -36,6 +40,10 @@ func TestExporter_Export(t *testing.T) {
 }
 
 func TestExporter_fetchAllRepositories(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
 	ctx := context.Background()
 	e, err := NewExporter(ctx, Config{
 		AccountName: "fargo3d",

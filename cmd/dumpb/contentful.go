@@ -30,9 +30,9 @@ var contentfulCmd = &cobra.Command{
 			return "", err
 		}
 
-		exportName := fmt.Sprintf("%s.%s.%s.tar.gz", githubOrganization, githubRepository, time.Now().Format(export.TimestampFormat))
+		exportName := fmt.Sprintf("%s.gz", time.Now().Format(export.TimestampFormat))
 		if backupName != "" {
-			exportName += fmt.Sprintf("%s/%s", backupName, exportName)
+			exportName = fmt.Sprintf("%s/%s", backupName, exportName)
 		}
 		exportPath := filepath.Join(storageBucketPath, exportName)
 
