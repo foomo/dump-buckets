@@ -42,6 +42,7 @@ var contentfulCmd = &cobra.Command{
 			exportPath,
 			storage.WithContentType("application/json"),
 			storage.WithContentEncoding("gzip"),
+			storage.WithMetadata("SpaceID", contentfulSpaceID),
 		)
 		if err != nil {
 			return "", fmt.Errorf("failed to initialize writer: %w", err)
