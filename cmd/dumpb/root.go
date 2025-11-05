@@ -45,7 +45,7 @@ func Execute() {
 }
 
 type storageWriter interface {
-	NewWriter(ctx context.Context, path string) (writer io.WriteCloser, err error)
+	NewWriter(ctx context.Context, path string, opts ...storage.WriterOption) (writer io.WriteCloser, err error)
 }
 
 func configuredStorage(ctx context.Context) (storageWriter, error) {

@@ -24,8 +24,27 @@ func NewGCSStorage(ctx context.Context, bucketName string) (*GCSBackup, error) {
 	}, nil
 }
 
-func (gcs *GCSBackup) NewWriter(ctx context.Context, path string) (writer io.WriteCloser, err error) {
+func (gcs *GCSBackup) NewWriter(ctx context.Context, path string, opts ...WriterOption) (writer io.WriteCloser, err error) {
 	obj := gcs.client.Bucket(gcs.bucketName).Object(path)
+	w := obj.NewWriter(ctx)
 
-	return obj.NewWriter(ctx), nil
+	// Apply writer options if provided
+	if len(opts) > 0 {
+		attrs := &WriterAttrs{}
+		for _, opt := range opts {
+			opt(attrs)
+		}
+
+		if attrs.ContentType != "" {
+			w.ContentType = attrs.ContentType
+		}
+		if attrs.ContentEncoding != "" {
+			w.ContentEncoding = attrs.ContentEncoding
+		}
+		if len(attrs.Metadata) > 0 {
+			w.Metadata = attrs.Metadata
+		}
+	}
+
+	return w, nil
 }

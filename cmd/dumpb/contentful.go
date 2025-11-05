@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/foomo/dump-buckets/pkg/export"
+	storagepkg "github.com/foomo/dump-buckets/pkg/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -30,13 +31,18 @@ var contentfulCmd = &cobra.Command{
 			return "", err
 		}
 
-		exportName := fmt.Sprintf("%s.gz", time.Now().Format(export.TimestampFormat))
+		exportName := fmt.Sprintf("%s.json.gz", time.Now().Format(export.TimestampFormat))
 		if backupName != "" {
 			exportName = fmt.Sprintf("%s/%s", backupName, exportName)
 		}
 		exportPath := filepath.Join(storageBucketPath, exportName)
 
-		writer, err := storage.NewWriter(ctx, exportPath)
+		writer, err := storage.NewWriter(
+			ctx,
+			exportPath,
+			storagepkg.WithContentType("application/json"),
+			storagepkg.WithContentEncoding("gzip"),
+		)
 		if err != nil {
 			return "", fmt.Errorf("failed to initialize writer: %w", err)
 		}

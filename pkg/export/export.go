@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/foomo/dump-buckets/pkg/storage"
 )
 
 const (
@@ -16,7 +18,7 @@ const (
 )
 
 type Storage interface {
-	NewWriter(ctx context.Context, path string) (writer io.WriteCloser, err error)
+	NewWriter(ctx context.Context, path string, opts ...storage.WriterOption) (writer io.WriteCloser, err error)
 }
 
 // Tar takes a source and variable writers and walks 'source' writing each file
