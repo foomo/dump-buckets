@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/foomo/dump-buckets/pkg/export"
-	storagepkg "github.com/foomo/dump-buckets/pkg/storage"
+	"github.com/foomo/dump-buckets/pkg/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -21,7 +21,7 @@ var (
 var contentfulCmd = &cobra.Command{
 	Use:   "contentful",
 	Short: "Dumps contentful spaces in a specific bucket",
-	RunE: exportWrapper("Contentful", func(ctx context.Context, l *slog.Logger, storage storageWriter) (string, error) {
+	RunE: exportWrapper("Contentful", func(ctx context.Context, l *slog.Logger, sw storageWriter) (string, error) {
 		config := export.ContentfulExportConfig{
 			ManagementToken: contentfulManagementToken,
 			SpaceID:         contentfulSpaceID,
@@ -37,11 +37,11 @@ var contentfulCmd = &cobra.Command{
 		}
 		exportPath := filepath.Join(storageBucketPath, exportName)
 
-		writer, err := storage.NewWriter(
+		writer, err := sw.NewWriter(
 			ctx,
 			exportPath,
-			storagepkg.WithContentType("application/json"),
-			storagepkg.WithContentEncoding("gzip"),
+			storage.WithContentType("application/json"),
+			storage.WithContentEncoding("gzip"),
 		)
 		if err != nil {
 			return "", fmt.Errorf("failed to initialize writer: %w", err)

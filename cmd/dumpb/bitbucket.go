@@ -21,7 +21,7 @@ var (
 var bitbucketCmd = &cobra.Command{
 	Use:   "bitbucket",
 	Short: "Dumps bitbucket accounts in a destination bucket",
-	RunE: exportWrapper("BitBucket", func(ctx context.Context, l *slog.Logger, storage storageWriter) (string, error) {
+	RunE: exportWrapper("BitBucket", func(ctx context.Context, l *slog.Logger, sw storageWriter) (string, error) {
 		config := bitbucket.Config{
 			AccountName: bitbucketAccount,
 			Token:       bitbucketToken,
@@ -37,7 +37,7 @@ var bitbucketCmd = &cobra.Command{
 		}
 		exportPath := filepath.Join(storageBucketPath, exportName)
 
-		writer, err := storage.NewWriter(ctx, exportPath)
+		writer, err := sw.NewWriter(ctx, exportPath)
 		if err != nil {
 			return "", fmt.Errorf("failed to initialize writer: %w", err)
 		}
