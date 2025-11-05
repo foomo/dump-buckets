@@ -235,3 +235,15 @@ Exports follow pattern: `{BACKUP_NAME}/{TIMESTAMP}{.ext}{.gz}`
 - Timestamp format: `20060102T150405` (defined in `export.TimestampFormat`)
 - Optional extension and gzip compression
 - Example: `my-backup/20240213T143052.sql.gz`
+
+## Commit Messages
+
+When commiting, please follow the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) format.
+Keep the commits in one line, maximum 120 characters.
+Split up multiple changes into multiple commits, if necessary. Group by logical changes.
+
+## Pull Requests
+
+When creating a pull request, please include a description of the changes you made.
+Keep it short and concise. If you are fixing a bug, please include the issue number.
+It needs to be one paragraph max. Keep it as simple ass possible.
