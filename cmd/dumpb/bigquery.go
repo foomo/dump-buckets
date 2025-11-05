@@ -22,7 +22,7 @@ var (
 var bigQueryCmd = &cobra.Command{
 	Use:   "bigquery",
 	Short: "Dumps contents of bigquery via ",
-	RunE: exportWrapper("BigQuery", func(ctx context.Context, l *slog.Logger, storage storageWriter) (string, error) {
+	RunE: exportWrapper("BigQuery", func(ctx context.Context, l *slog.Logger, sw storageWriter) (string, error) {
 		storage, err := configuredStorage(ctx)
 		if err != nil {
 			return "", err

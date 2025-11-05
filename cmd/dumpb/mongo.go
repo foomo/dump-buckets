@@ -23,7 +23,7 @@ var (
 var mongoCmd = &cobra.Command{
 	Use:   "mongo",
 	Short: "Dumps mongo into a bucket",
-	RunE: exportWrapper("GitHub", func(ctx context.Context, l *slog.Logger, storage storageWriter) (string, error) {
+	RunE: exportWrapper("GitHub", func(ctx context.Context, l *slog.Logger, sw storageWriter) (string, error) {
 		config := export.MongoExportConfig{
 			MongoURI:               mongoURI,
 			Username:               mongoUsername,
@@ -42,7 +42,7 @@ var mongoCmd = &cobra.Command{
 		exportPath := filepath.Join(storageBucketPath, exportName)
 		l = l.With(slog.String("path", exportPath))
 
-		writer, err := storage.NewWriter(ctx, exportPath)
+		writer, err := sw.NewWriter(ctx, exportPath)
 		if err != nil {
 			return "", fmt.Errorf("failed to initialize writer: %w", err)
 		}

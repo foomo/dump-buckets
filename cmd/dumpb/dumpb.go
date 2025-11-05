@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type exporterHandler func(ctx context.Context, l *slog.Logger, storage storageWriter) (outputPath string, err error)
+type exporterHandler func(ctx context.Context, l *slog.Logger, sw storageWriter) (outputPath string, err error)
 
 func exportWrapper(exporterName string, handler exporterHandler) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {

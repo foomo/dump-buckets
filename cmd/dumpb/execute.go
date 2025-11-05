@@ -33,7 +33,7 @@ var executeCmd = &cobra.Command{
 
 		wrapper := exportWrapper(
 			"execute",
-			func(ctx context.Context, l *slog.Logger, storage storageWriter) (string, error) {
+			func(ctx context.Context, l *slog.Logger, sw storageWriter) (string, error) {
 				cmdArgs := args[dashIndex:]
 
 				if len(cmdArgs) < 1 {
@@ -42,7 +42,7 @@ var executeCmd = &cobra.Command{
 
 				exportPath := filepath.Join(storageBucketPath, getExportName(time.Now()))
 
-				writer, err := storage.NewWriter(ctx, exportPath)
+				writer, err := sw.NewWriter(ctx, exportPath)
 				if err != nil {
 					return "", fmt.Errorf("failed to initialize writer: %w", err)
 				}
