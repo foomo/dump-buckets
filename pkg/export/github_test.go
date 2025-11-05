@@ -10,6 +10,10 @@ import (
 )
 
 func TestGithubExport(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
 	tfile, err := os.Create(filepath.Join(t.TempDir(), "archive.tar"))
 	require.NoError(t, err)
 	defer tfile.Close()

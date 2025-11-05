@@ -15,20 +15,20 @@ func Test_getExportName(t *testing.T) {
 		outputExt = ""
 
 		exportName := getExportName(time.Time{})
-		require.Equal(t, "backup/0001-01-01T00:00:00Z", exportName)
+		require.Equal(t, "backup/00010101T000000", exportName)
 	})
 	t.Run("ext", func(t *testing.T) {
 		outputGzip = false
 		outputExt = ".data"
 
 		exportName := getExportName(time.Time{})
-		require.Equal(t, "backup/0001-01-01T00:00:00Z.data", exportName)
+		require.Equal(t, "backup/00010101T000000.data", exportName)
 	})
 	t.Run("gz", func(t *testing.T) {
 		outputGzip = true
 		outputExt = ""
 
 		exportName := getExportName(time.Time{})
-		require.Equal(t, "backup/0001-01-01T00:00:00Z.gz", exportName)
+		require.Equal(t, "backup/00010101T000000.gz", exportName)
 	})
 }

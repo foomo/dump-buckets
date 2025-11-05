@@ -1,10 +1,10 @@
 # -----------------------------------------------------------------------------
 # Runtime
 # -----------------------------------------------------------------------------
-FROM --platform=$TARGETPLATFORM alpine:3.22.1 as runtime
+FROM alpine:3.22.1 AS runtime
 
 ENV TZ=Europe/Zurich
-ENV DEFAULT_TZ ${TZ}
+ENV DEFAULT_TZ=${TZ}
 
 # Add tools
 RUN apk add -U --no-cache \
@@ -28,7 +28,7 @@ RUN npm install -g contentful-cli
 # -----------------------------------------------------------------------------
 # Builder Base
 # -----------------------------------------------------------------------------
-FROM --platform=$BUILDPLATFORM golang:1-alpine as build-env
+FROM --platform=$BUILDPLATFORM golang:1-alpine AS build-env
 
 ARG TARGETOS=linux
 ARG TARGETARCH=amd64

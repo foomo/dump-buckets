@@ -11,6 +11,10 @@ import (
 )
 
 func Test_Export(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
 	ctx := context.Background()
 	bucketName := "bigquery-backup-example"
 
